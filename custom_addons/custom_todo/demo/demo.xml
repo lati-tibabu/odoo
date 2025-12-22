@@ -1,0 +1,24 @@
+<odoo>
+    <data>
+        <record id="demo_task_1" model="todo.task">
+            <field name="name">Complete project documentation</field>
+            <field name="description">Write comprehensive documentation for the new feature</field>
+            <field name="priority">high</field>
+            <field name="category">Work</field>
+        </record>
+
+        <record id="demo_task_2" model="todo.task">
+            <field name="name">Buy groceries</field>
+            <field name="description">Milk, bread, eggs, and vegetables</field>
+            <field name="priority">medium</field>
+            <field name="category">Personal</field>
+        </record>
+
+        <record id="demo_task_3" model="todo.task">
+            <field name="name">Schedule dentist appointment</field>
+            <field name="priority">low</field>
+            <field name="category">Health</field>
+            <field name="is_done">true</field>
+        </record>
+    </data>
+</odoo>

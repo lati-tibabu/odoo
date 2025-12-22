@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Payment Provider Form View -->
+        <record id="payment_provider_form" model="ir.ui.view">
+            <field name="name">payment.provider.form.telebirr</field>
+            <field name="model">payment.provider</field>
+            <field name="inherit_id" ref="payment.payment_provider_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//group[@name='provider_credentials']" position="after">
+                    <group invisible="code != 'telebirr'" name="telebirr_credentials">
+                        <group name="telebirr_credentials_left">
+                            <field name="telebirr_app_id" 
+                                   placeholder="e.g., 2021001165438011" 
+                                   password="True"
+                                   required="code == 'telebirr' and state != 'disabled'"/>
+                            <field name="telebirr_app_key" 
+                                   placeholder="Your App Key from Telebirr" 
+                                   password="True"
+                                   required="code == 'telebirr' and state != 'disabled'"/>
+                        </group>
+                        <group name="telebirr_credentials_right">
+                            <field name="telebirr_merchant_id" 
+                                   placeholder="e.g., M2021001165438011"
+                                   required="code == 'telebirr' and state != 'disabled'"/>
+                            <field name="telebirr_public_key" 
+                                   placeholder="Paste your RSA Public Key here"
+                                   required="code == 'telebirr' and state != 'disabled'"/>
+                        </group>
+                    </group>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

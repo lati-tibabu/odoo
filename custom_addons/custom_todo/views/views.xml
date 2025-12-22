@@ -1,0 +1,16 @@
+<odoo>
+  <data>
+    <!-- Action to open the custom page -->
+    <record model="ir.actions.act_url" id="custom_todo.action_todo">
+        <field name="name">To-Do Tasks</field>
+        <field name="url">/todo</field>
+        <field name="target">self</field>
+    </record>
+
+    <!-- Top menu item -->
+    <menuitem name="To-Do App" id="custom_todo.menu_root"/>
+    
+    <!-- menu categories -->
+    <menuitem name="Tasks" id="custom_todo.menu_tasks" parent="custom_todo.menu_root" action="custom_todo.action_todo"/>
+  </data>
+</odoo>

@@ -1,0 +1,243 @@
+/* Custom Todo App Styles */
+
+.todo-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Tab Styles */
+.nav-tabs .nav-link {
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #6c757d;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.nav-tabs .nav-link:hover {
+    border-bottom-color: #007bff;
+    color: #007bff;
+}
+
+.nav-tabs .nav-link.active {
+    border-bottom-color: #007bff;
+    color: #007bff;
+    background-color: transparent;
+}
+
+/* Task Card Styles */
+.task-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.task-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.task-completed {
+    opacity: 0.7;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.task-completed .task-title {
+    text-decoration: line-through;
+    color: #6c757d;
+}
+
+/* Priority Badges */
+.priority-low {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.priority-medium {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.priority-high {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Task Title */
+.task-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #212529;
+    transition: color 0.3s ease;
+}
+
+/* Task Metadata */
+.task-meta {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.task-meta i {
+    width: 16px;
+    margin-right: 4px;
+}
+
+/* Action Buttons */
+.task-actions {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.task-card:hover .task-actions {
+    opacity: 1;
+}
+
+/* Form Styles */
+.todo-form-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+}
+
+.todo-form-card .card-header {
+    background: transparent;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+.todo-form-card .form-label {
+    color: white;
+    font-weight: 500;
+}
+
+.todo-form-card .form-control {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+}
+
+.todo-form-card .form-control::placeholder {
+    color: rgba(255,255,255,0.7);
+}
+
+.todo-form-card .form-control:focus {
+    background: rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.5);
+    color: white;
+}
+
+.todo-form-card .form-select {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+}
+
+.todo-form-card .form-select:focus {
+    background: rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.5);
+}
+
+.todo-form-card .btn-primary {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+}
+
+.todo-form-card .btn-primary:hover {
+    background: rgba(255,255,255,0.3);
+    border-color: rgba(255,255,255,0.5);
+}
+
+/* Edit Form Styles */
+.edit-form-container {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    border-radius: 8px;
+    padding: 2rem;
+}
+
+/* Animations */
+@keyframes taskComplete {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.task-completed {
+    animation: taskComplete 0.5s ease;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #6c757d;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .todo-container {
+        padding: 0 1rem;
+    }
+
+    .task-card .d-flex {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+
+    .task-actions {
+        opacity: 1;
+        margin-top: 1rem;
+        width: 100%;
+    }
+
+    .task-actions .btn {
+        flex: 1;
+        margin: 0 0.25rem;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .task-card {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+
+    .task-title {
+        color: #e2e8f0;
+    }
+
+    .task-meta {
+        color: #a0aec0;
+    }
+}
+
+/* Custom scrollbar */
+.task-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.task-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.task-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.task-list::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}

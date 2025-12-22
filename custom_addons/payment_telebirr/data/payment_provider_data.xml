@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Payment Provider Data -->
+        <record id="payment_provider_telebirr" model="payment.provider">
+            <field name="name">Telebirr</field>
+            <field name="code">telebirr</field>
+            <field name="state">disabled</field>
+            <field name="is_published">False</field>
+            <field name="image_128" type="base64" file="payment_telebirr/static/src/img/telebirr_icon.png"/>
+            <field name="sequence">20</field>
+            <field name="redirect_form_view_id" ref="payment_telebirr.telebirr_form"/>
+            <field name="inline_form_view_id" ref="payment_telebirr.telebirr_form"/>
+            <field name="pre_msg"><![CDATA[
+                <p>You will be redirected to Telebirr to complete your payment.</p>
+                <ul>
+                    <li>Fast and secure payment processing</li>
+                    <li>Support for mobile money payments</li>
+                    <li>Instant payment confirmation</li>
+                </ul>
+            ]]></field>
+        </record>
+    </data>
+</odoo>

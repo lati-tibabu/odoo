@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Payment Form Template -->
+        <template id="telebirr_form" name="Telebirr Payment Form">
+            <div class="telebirr-payment-form">
+                <input type="hidden" name="data_set" t-att-data-action-url="api_url"/>
+                <input type="hidden" name="prepay_id" t-att-value="prepay_id"/>
+                <input type="hidden" name="order_id" t-att-value="order_id"/>
+            </div>
+        </template>
+
+        <!-- Payment Icon -->
+        <template id="telebirr_icon" name="Telebirr Icon">
+            <span class="payment_icon_telebirr">
+                <img src="/payment_telebirr/static/src/img/telebirr_icon.png" 
+                     alt="Telebirr" 
+                     style="max-height: 40px;"/>
+            </span>
+        </template>
+    </data>
+</odoo>
