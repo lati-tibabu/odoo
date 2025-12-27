@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="module_view_kanban_inherit_module_name" model="ir.ui.view">
+        <field name="name">ir.module.module.view.kanban.inherit.client.app.accessible</field>
+        <field name="model">ir.module.module</field>
+        <field name="inherit_id" ref="base.module_view_kanban"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='application']" position="after">
+                <field name="client_app_accessible"/>
+            </xpath>
+            <xpath expr="//t[@t-name='card']//footer" position="inside">
+                <!-- <button type="object" class="btn btn-sm btn-success ms-1"
+                    name="action_toggle_client_app_accessible"
+                    invisible="not client_app_accessible">
+                    Client App
+                </button>
+                <button type="object" class="btn btn-sm btn-outline-secondary ms-1"
+                    name="action_toggle_client_app_accessible"
+                    invisible="client_app_accessible">
+                    Not Client App
+                </button> -->
+                <div class="d-flex align-items-center bg-light p-1 rounded border ms-2">
+                    <div class="badge ms-1" t-if="record.client_app_accessible.raw_value">Client App Accessible</div>
+                    <field name="client_app_accessible"  string="Is Client App Accessible" widget="boolean_toggle" />
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>
