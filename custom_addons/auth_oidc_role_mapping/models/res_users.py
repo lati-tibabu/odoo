@@ -1,7 +1,9 @@
 import logging
-from odoo import models, api
+from odoo import models, api, _
 
 _logger = logging.getLogger(__name__)
+
+SYSTEM_ROLES = {"offline_access", "uma_authorization", "default-roles-odoo-realm"}
 
 class ResUsers(models.Model):
     _inherit = "res.users"
@@ -21,7 +23,11 @@ class ResUsers(models.Model):
             _logger.warning("OIDC: User not found for login %s", login)
             return login
 
-        self._apply_oidc_mapping(user, oauth_provider, validation)
+        try:
+            self._apply_oidc_mapping(user, oauth_provider, validation)
+        except Exception as e:
+            _logger.error("OIDC: Failed to apply role mapping for %s: %s", user.login, e)
+
         return login
 
     def _apply_oidc_mapping(self, user, provider, validation):
@@ -35,10 +41,35 @@ class ResUsers(models.Model):
         if isinstance(roles, str):
             roles = [roles]
 
+        # Remove system roles
+        roles = [r for r in roles if r not in SYSTEM_ROLES]
+        if not roles:
+            return
+
         groups = self._map_roles_to_groups(provider, roles)
-        if groups:
-            combined = user.groups_id | groups
-            user.groups_id = [(6, 0, combined.ids)]
+        if not groups:
+            return
+
+        # Preserve existing groups but ensure only one user-type group
+        user_type_groups = self.env.ref("base.group_user") | self.env.ref("base.group_portal") | self.env.ref("base.group_public")
+        existing_user_type = user.groups_id & user_type_groups
+        mapped_user_type = groups & user_type_groups
+
+        # Decide final user-type group
+        final_user_type = None
+        if mapped_user_type:
+            # Prioritize Internal > Portal > Public
+            final_user_type = self.env.ref("base.group_user") if self.env.ref("base.group_user") in mapped_user_type else mapped_user_type[0]
+        elif existing_user_type:
+            final_user_type = existing_user_type[0]
+
+        # Combine other groups excluding old user-type groups
+        combined = (user.groups_id | groups) - user_type_groups
+        if final_user_type:
+            combined |= final_user_type
+
+        # Write safely
+        user.groups_id = [(6, 0, combined.ids)]
 
     def _extract_claim(self, payload, claim_path):
         if not claim_path:
@@ -58,7 +89,7 @@ class ResUsers(models.Model):
             )
             return groups
 
-        role_keys = [str(role) for role in roles]
+        role_keys = [str(r) if not isinstance(r, str) else r for r in roles]
         matched = self.env["auth.oidc.role.mapping"].search(
             [("provider_id", "=", provider.id), ("role", "in", role_keys)]
         )

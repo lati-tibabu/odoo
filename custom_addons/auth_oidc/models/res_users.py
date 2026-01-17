@@ -75,6 +75,7 @@ class ResUsers(models.Model):
             raise AccessDenied()
         # retrieve and sign in user
         params["access_token"] = access_token
+        params["id_token"] = id_token
         login = self._auth_oauth_signin(provider, validation, params)
         if not login:
             raise AccessDenied()

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <template id="web_login_keycloak_auto_redirect" inherit_id="web.login">
+        <xpath expr="//form" position="before">
+            <script type="text/javascript"><![CDATA[
+                (function () {
+                    document.addEventListener("DOMContentLoaded", function() {
+                        const params = new URLSearchParams(window.location.search);
+
+                        // 1. Safety Check: Allow admin bypass using ?no_redirect=true
+                        if (params.has('no_redirect')) {
+                            return;
+                        }
+
+                        // 2. Error Check: If we just came back from Keycloak with an error, stop looping.
+                        if (params.has('oauth_error')) {
+                            return;
+                        }
+
+                        // 3. Find the Keycloak Provider Button
+                        // We look for an anchor tag <a> inside the oauth providers container.
+                        // We filter for the one that likely points to your Keycloak provider.
+                        // ADJUSTMENT: If your button text isn't "Keycloak", change 'Keycloak' below.
+                        const providers = document.querySelectorAll('.o_auth_oauth_providers a');
+                        let keycloakBtn = null;
+
+                        providers.forEach((btn) => {
+                            // Check if the URL matches the provider ID 7 (from your example URL "p": 7)
+                            // OR check if the text contains "Keycloak"
+                            if (btn.href.includes('oauth_provider=7') || btn.innerText.includes('Keycloak')) {
+                                keycloakBtn = btn;
+                            }
+                        });
+
+                        // 4. Redirect using the valid, dynamic URL Odoo generated
+                        if (keycloakBtn) {
+                            // Optional: Hide body to prevent flickering
+                            document.body.style.display = 'none'; 
+                            window.location.replace(keycloakBtn.href);
+                        } else {
+                            console.warn("Keycloak provider button not found. Please check OAuth settings.");
+                        }
+                    });
+                })();
+            ]]></script>
+        </xpath>
+    </template>
+</odoo>
