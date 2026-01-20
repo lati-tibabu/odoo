@@ -32,12 +32,14 @@ class ResUsers(models.Model):
                 client_id=oauth_provider.client_id,
                 grant_type="authorization_code",
                 code=code,
-                code_verifier=oauth_provider.code_verifier,
+                # code_verifier=oauth_provider.code_verifier,  # Removed to avoid PKCE issues if not configured
                 redirect_uri=request.httprequest.url_root + "auth_oauth/signin",
             ),
             auth=auth,
             timeout=10,
         )
+        if not response.ok:
+            _logger.error("Token request failed: %s %s", response.status_code, response.text)
         response.raise_for_status()
         response_json = response.json()
         

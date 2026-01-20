@@ -11,9 +11,6 @@ using Odoo's OAuth/OIDC authentication flow.
         "web",
         "auth_oauth",
     ],
-    "data": [
-        "views/login_redirect.xml",
-    ],
     "installable": True,
     "application": False,
     "license": "LGPL-3",
