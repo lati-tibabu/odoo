@@ -1,9 +1,16 @@
 import logging
 import requests
+import base64
+import json
 from odoo import api, fields, models
 from odoo.http import request
 
 _logger = logging.getLogger(__name__)
+
+try:
+    from jose import jwt
+except ImportError:
+    jwt = None
 
 class ResUsers(models.Model):
     _inherit = 'res.users'
@@ -64,6 +71,27 @@ class ResUsers(models.Model):
                 if request:
                     if id_token:
                         request.session['id_token'] = id_token
+                        try:
+                            # We don't need signature verification here as it was just received from provider
+                            # but we need to decode for the 'sid' claim.
+                            parts = id_token.split('.')
+                            if len(parts) > 1:
+                                payload_b64 = parts[1]
+                                # Add padding if needed
+                                payload_b64 += '=' * (4 - len(payload_b64) % 4)
+                                payload = json.loads(base64.b64decode(payload_b64))
+                                sid = payload.get('sid')
+                                if sid:
+                                    request.session['keycloak_sid'] = sid
+                                    # Use root.session_store if available to force save
+                                    try:
+                                        from odoo.http import root
+                                        root.session_store.save(request.session)
+                                        _logger.info("OAuth Signin: Captured Keycloak sid %s for user %s", sid, user.login)
+                                    except Exception as e:
+                                        _logger.warning("OAuth Signin: Failed to save session after capturing sid: %s", e)
+                        except Exception as e:
+                            _logger.error("Failed to extract sid from id_token: %s", e)
                     if refresh_token:
                         request.session['refresh_token'] = refresh_token
         return login

@@ -1,17 +1,50 @@
-from odoo import http
-from odoo.http import request
-from odoo.addons.web.controllers.session import Session
-from urllib.parse import urlencode
-
-
 import logging
 import requests
-from odoo import http
-from odoo.http import request
+import json
+import base64
+from odoo import http, SUPERUSER_ID
+from odoo.http import request, root
 from odoo.addons.web.controllers.session import Session
+from odoo.addons.keycloack_auth.controllers.sso import KeycloakSSO
 from urllib.parse import urlencode
 
 _logger = logging.getLogger(__name__)
+
+try:
+    from jose import jwt
+except ImportError:
+    jwt = None
+
+class KeycloakSSOExtended(KeycloakSSO):
+    @http.route(['/auth/sso/callback', '/sso/jwt/login'], type='http', auth='none', methods=['POST'], csrf=False)
+    def sso_callback(self, **post):
+        response = super(KeycloakSSOExtended, self).sso_callback(**post)
+        
+        # If login was successful, capture tokens from original post
+        token = post.get('access_token')
+        refresh_token = post.get('refresh_token')
+        
+        if request.session.uid:
+            if refresh_token:
+                request.session['refresh_token'] = refresh_token
+                
+            if token:
+                try:
+                    parts = token.split('.')
+                    if len(parts) > 1:
+                        payload_b64 = parts[1]
+                        payload_b64 += '=' * (4 - len(payload_b64) % 4)
+                        payload = json.loads(base64.b64decode(payload_b64))
+                        sid = payload.get('sid')
+                        if sid:
+                            request.session['keycloak_sid'] = sid
+                            # Force save to ensure it's written to disk before the redirect
+                            root.session_store.save(request.session)
+                            _logger.info("SSO Callback: Captured Keycloak sid %s for user %s", sid, request.session.uid)
+                except Exception as e:
+                    _logger.warning("SSO Callback: Failed to extract sid from token: %s", e)
+        
+        return response
 
 class KeycloakSession(Session):
 
@@ -22,7 +55,7 @@ class KeycloakSession(Session):
         id_token = request.session.get('id_token')
         refresh_token = request.session.get('refresh_token')
         
-        # If not in session, try to get from user record if we have a UID
+        provider = False
         if uid:
             user = request.env['res.users'].sudo().browse(uid)
             if not id_token:
@@ -30,7 +63,8 @@ class KeycloakSession(Session):
             if not refresh_token:
                 refresh_token = user.oauth_refresh_token
             provider = user.oauth_provider_id
-        else:
+        
+        if not provider:
             provider = request.env["auth.oauth.provider"].sudo().search(
                 [("enabled", "=", True), ("auth_endpoint", "ilike", "keycloak")],
                 limit=1,
@@ -43,22 +77,10 @@ class KeycloakSession(Session):
             _logger.debug("No OAuth provider found for logout redirect")
             return request.redirect(redirect)
 
-        # 2. Backchannel Logout (Optional but good for full implementation)
-        # If we have a refresh token, we can tell Keycloak to invalidate it immediately
+        # 2. Backchannel Logout (Telling Keycloak to invalidate refresh token)
         if refresh_token:
             try:
-                logout_endpoint = provider.validation_endpoint.replace(
-                    "/protocol/openid-connect/token",
-                    "/protocol/openid-connect/logout"
-                )
-                # If auth_oidc has end_session_endpoint, it might be better
-                if hasattr(provider, 'end_session_endpoint') and provider.end_session_endpoint:
-                    # Note: end_session_endpoint is usually for browser redirect
-                    pass
-                
-                token_endpoint = getattr(provider, 'token_endpoint', False) or provider.validation_endpoint
-                # Backchannel logout endpoint is often the same as browser logout but called via POST
-                # or specifically a /logout endpoint.
+                token_endpoint = provider.token_endpoint or provider.validation_endpoint
                 bc_logout_url = token_endpoint.replace('/token', '/logout')
                 
                 payload = {
@@ -69,12 +91,11 @@ class KeycloakSession(Session):
                     payload['client_secret'] = provider.client_secret
                 
                 requests.post(bc_logout_url, data=payload, timeout=5)
-                _logger.info("Backchannel logout successful for user %s", uid)
+                _logger.info("Backchannel logout (revocation) successful for user %s", uid)
             except Exception as e:
-                _logger.warning("Backchannel logout failed: %s", e)
+                _logger.warning("Backchannel logout (revocation) failed: %s", e)
 
         # 3. RP-Initiated Logout (Browser Redirect)
-        # This is the most important part for web sessions
         base_url = request.env["ir.config_parameter"].sudo().get_param("web.base.url") or request.httprequest.host_url.rstrip('/')
         
         if redirect.startswith('/'):
@@ -82,7 +103,6 @@ class KeycloakSession(Session):
         else:
             redirect_uri = redirect
             
-        # Add no_redirect to avoid login loops with auto-redirect modules
         if '?' in redirect_uri:
             redirect_uri += '&no_redirect=1'
         else:
@@ -96,13 +116,89 @@ class KeycloakSession(Session):
         if id_token:
             params["id_token_hint"] = id_token
 
-        # # Determine logout URL
-        # logout_url = getattr(provider, 'end_session_endpoint', False)
-        # if not logout_url:
-        #     # Fallback to derivation or hardcoded if necessary
-        #     # We use the one provided by the user earlier as primary fallback for their specific setup
-        #     logout_url = "http://localhost:8080/realms/odoo-realm/protocol/openid-connect/logout"
+        # Use end_session_endpoint if available from auth_oidc
+        logout_url = getattr(provider, 'end_session_endpoint', False)
+        if not logout_url:
+            # Fallback derivation
+            logout_url = provider.auth_endpoint.replace('/auth', '/logout')
 
-        # final_url = f"{logout_url}?{urlencode(params)}"
-        # _logger.debug("Redirecting to Keycloak logout: %s", final_url)
-        return request.redirect(base_url)
+        final_url = f"{logout_url}?{urlencode(params)}"
+        _logger.debug("Redirecting to Keycloak logout: %s", final_url)
+        return request.redirect(final_url)
+
+    @http.route('/auth/keycloak/backchannel_logout', type='http', auth='none', methods=['POST'], csrf=False)
+    def backchannel_logout(self, **post):
+        """
+        Handle OIDC Back-channel Logout from Keycloak.
+        """
+        _logger.info("Received Keycloak Back-channel Logout request")
+        logout_token = post.get('logout_token')
+        if not logout_token:
+            _logger.warning("Back-channel logout: Missing logout_token in POST data: %s", post)
+            return request.make_response('Missing logout_token', status=400)
+
+        sudo_env = request.env(user=SUPERUSER_ID)
+        
+        try:
+            # Extract unverified payload to find sid/sub
+            parts = logout_token.split('.')
+            if len(parts) < 2:
+                _logger.warning("Back-channel logout: Invalid JWT format")
+                return request.make_response("Invalid JWT", status=400)
+                
+            payload_b64 = parts[1]
+            payload_b64 += '=' * (4 - len(payload_b64) % 4)
+            payload = json.loads(base64.b64decode(payload_b64))
+            
+            sid = payload.get('sid')
+            sub = payload.get('sub')
+            
+            _logger.info("Back-channel logout processing for sid: %s, sub: %s", sid, sub)
+
+            if not sid and not sub:
+                _logger.warning("Back-channel logout: Token missing sid and sub")
+                return request.make_response('Token missing sid and sub', status=400)
+
+            # Invalidate sessions in Odoo
+            session_store = root.session_store
+            sessions_at_start = session_store.list()
+            sessions_to_delete = []
+
+            # We search for a user matching the sub if provided
+            user_id = False
+            if sub:
+                 user = sudo_env['res.users'].sudo().search([('keycloak_sub', '=', sub)], limit=1)
+                 if user:
+                     user_id = user.id
+                     _logger.debug("Back-channel logout: Found Odoo user %s for sub %s", user.login, sub)
+
+            for session_id in sessions_at_start:
+                try:
+                    s = session_store.get(session_id)
+                    # 1. Primary match: by Keycloak Session ID
+                    if sid and s.get('keycloak_sid') == sid:
+                        _logger.info("Back-channel logout: Matching session %s by sid %s", session_id, sid)
+                        sessions_to_delete.append(s)
+                    # 2. Secondary match: by Odoo UID (if sub is known and only sub is provided)
+                    elif not sid and user_id and s.get('uid') == user_id:
+                        _logger.info("Back-channel logout: Matching session %s by uid %s (sub %s)", session_id, user_id, sub)
+                        sessions_to_delete.append(s)
+                except Exception as e:
+                    _logger.debug("Back-channel logout: Error reading session %s: %s", session_id, e)
+                    continue
+
+            deleted_count = 0
+            for s in sessions_to_delete:
+                try:
+                    _logger.info("Back-channel logout: Terminating Odoo session %s", s.sid)
+                    session_store.delete(s)
+                    deleted_count += 1
+                except Exception as e:
+                    _logger.error("Back-channel logout: Failed to delete session %s: %s", s.sid, e)
+
+            _logger.info("Back-channel logout processed: %d sessions terminated", deleted_count)
+            return request.make_response('OK', status=200)
+
+        except Exception as e:
+            _logger.error("Back-channel logout processing error: %s", e)
+            return request.make_response(str(e), status=400)

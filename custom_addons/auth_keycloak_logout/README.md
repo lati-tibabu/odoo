@@ -8,8 +8,9 @@ This Odoo module ensures that when users log out of Odoo, they are also logged o
 ## Features
 
 - **Complete Logout**: Forces logout from both Odoo and Keycloak simultaneously.
-- **Backchannel Logout**: Optionally invalidates refresh tokens server-side for enhanced security.
+- **Backchannel Logout**: Support for OIDC Back-channel logout notifications from Keycloak.
 - **RP-Initiated Logout**: Redirects users to Keycloak's logout endpoint for browser-based logout.
+- **Session Synchronization**: Periodically checks Keycloak session status (every 5-30s) during user activity and logs out Odoo if the Keycloak session is ended.
 - **Token Management**: Handles ID tokens and refresh tokens securely.
 - **Fallback Handling**: Gracefully handles cases where tokens are unavailable.
 - **Error Resilience**: Continues logout process even if Keycloak logout fails.
@@ -40,8 +41,9 @@ Ensure you have a Keycloak OAuth provider configured in Odoo (see `auth_keycloak
 
 1. **Client Settings**:
    - **Front Channel Logout**: Enabled (if using front-channel logout)
-   - **Backchannel Logout URL**: Configure if using backchannel logout
-   - **Logout Redirect URIs**: Add your Odoo base URL
+   - **Backchannel Logout URL**: `https://<your-odoo-domain>/auth/keycloak/backchannel_logout`
+   - **Backchannel Logout Session Required**: Enabled (ON)
+   - **Logout Redirect URIs**: Add your Odoo base URL (e.g., `https://odoo.example.com/*`)
 
 2. **Realm Settings**:
    - Ensure logout endpoints are properly configured
@@ -52,6 +54,8 @@ Ensure you have a Keycloak OAuth provider configured in Odoo (see `auth_keycloak
 2. **Backchannel Logout** (Optional): Invalidates refresh tokens via server-to-server call.
 3. **Browser Redirect**: Redirects user to Keycloak logout endpoint with proper parameters.
 4. **Return to Odoo**: After Keycloak logout, redirects back to Odoo login page.
+5. **Passive Check**: If a user is active in Odoo but their session was terminated in Keycloak (e.g., from the Keycloak Admin), Odoo will detect this during the next refresh/action (within 5-30s) and log them out automatically.
+6. **Active Invalidation**: Keycloak can send a POST request to the Back-channel Logout URL to immediately invalidate Odoo sessions.
 
 ## Keycloak Logout Mechanisms
 
