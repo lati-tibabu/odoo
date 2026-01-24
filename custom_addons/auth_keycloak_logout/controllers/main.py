@@ -119,12 +119,18 @@ class KeycloakSession(Session):
         # Use end_session_endpoint if available from auth_oidc
         logout_url = getattr(provider, 'end_session_endpoint', False)
         if not logout_url:
-            # Fallback derivation
-            logout_url = provider.auth_endpoint.replace('/auth', '/logout')
+            # Prefer token/validation endpoints (more reliable than auth_endpoint)
+            endpoint = provider.token_endpoint or provider.validation_endpoint or provider.auth_endpoint
+            if endpoint and endpoint.endswith('/token'):
+                logout_url = endpoint[:-len('/token')] + '/logout'
+            elif endpoint:
+                # Fallback derivation
+                logout_url = endpoint.replace('/auth', '/logout')
 
         final_url = f"{logout_url}?{urlencode(params)}"
         _logger.debug("Redirecting to Keycloak logout: %s", final_url)
-        return request.redirect(final_url)
+        # return request.redirect(final_url)
+        return request.redirect(base_url) # Just redirect to Odoo login page to avoid logout loops since module (auth_keycloak_login_redirect) handles backchannel logout
 
     @http.route('/auth/keycloak/backchannel_logout', type='http', auth='none', methods=['POST'], csrf=False)
     def backchannel_logout(self, **post):
