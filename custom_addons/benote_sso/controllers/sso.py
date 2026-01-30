@@ -26,7 +26,7 @@ class BenoteSSO(http.Controller):
         sudo_env = request.env(user=SUPERUSER_ID)
         secret = sudo_env['ir.config_parameter'].get_param('benote.jwt_secret')
         if not secret:
-            return request.make_response('JWT secret not configured', status=500)
+            return request.make_response('JWT secret not configured, test', status=500)
 
         try:
             payload = jwt.decode(
@@ -35,10 +35,13 @@ class BenoteSSO(http.Controller):
                 algorithms=['HS256'],
                 audience='odoo',
                 issuer='benote-auth',
+                leeway=60
             )
         except jwt.ExpiredSignatureError:
+            _logger.error("JWT token expired")
             return request.make_response('Token expired', status=401)
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as e:
+            _logger.error("JWT validation failed: %s", str(e))
             return request.make_response('Invalid token', status=401)
 
         sub = payload.get('sub')
@@ -46,7 +49,18 @@ class BenoteSSO(http.Controller):
             return request.make_response('Token missing sub', status=401)
 
         email = payload.get('email')
+        _logger.info("SSO callback: sub=%s, email=%s", sub, email)
         users = sudo_env['res.users']
+
+        roles = payload.get('roles') or []
+        if isinstance(roles, str):
+            roles = [roles]
+
+        if 'admin' in roles:
+            group_id = sudo_env.ref('base.group_system').id
+        else:
+            group_id = sudo_env.ref('base.group_portal').id
+            # group_id = sudo_env.ref('base.group_user').id
 
         user = users.search([('benote_sub', '=', sub)], limit=1)
         if not user and email:
@@ -55,20 +69,17 @@ class BenoteSSO(http.Controller):
                 user.write({'benote_sub': sub})
 
         if not user:
-            return request.make_response('User not found', status=403)
-
-        roles = payload.get('roles') or []
-        if isinstance(roles, str):
-            roles = [roles]
-
-        if 'admin' in roles:
-            group = sudo_env.ref('base.group_system')
-            if group not in user.groups_id:
-                user.write({'groups_id': [(4, group.id)]})
-        else:
-            group = sudo_env.ref('base.group_user')
-            if group not in user.groups_id:
-                user.write({'groups_id': [(4, group.id)]})
+            # Create new user with appropriate group
+            name = payload.get('name', email)
+            user = users.create({
+                'login': email,
+                'name': name,
+                'benote_sub': sub,
+                'password': 'sso_login_only',  # Dummy password for SSO users
+                'active': True,
+                'groups_id': [(6, 0, [group_id])],
+            })
+            _logger.info("Created new SSO user: %s (%s)", name, email)
 
         request.session.pre_login = user.login
         request.session.pre_uid = user.id
